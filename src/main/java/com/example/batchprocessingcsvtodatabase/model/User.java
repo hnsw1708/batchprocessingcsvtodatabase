@@ -5,9 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Type;
-
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -19,7 +17,6 @@ import java.util.UUID;
 @Builder
 public class User extends BaseEntity{
 
-    @Type(type = "org.hibernate.type.UUIDCharType")
     private UUID personId;
 
     private String firstName;
