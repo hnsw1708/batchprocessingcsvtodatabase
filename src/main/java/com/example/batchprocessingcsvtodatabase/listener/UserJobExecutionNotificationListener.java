@@ -5,18 +5,17 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.JobExecution;
-import org.springframework.batch.core.listener.JobExecutionListenerSupport;
+import org.springframework.batch.core.JobExecutionListener;
 
 @Slf4j
 @RequiredArgsConstructor
-public class UserJobExecutionNotificationListener extends JobExecutionListenerSupport {
+public class UserJobExecutionNotificationListener implements JobExecutionListener {
 
     private final UserRepository userRepository;
 
     @Override
     public void beforeJob(JobExecution jobExecution){
         log.info("UserJobExecutionNotificationListener | beforeJob | Executing job id : " +jobExecution.getJobId());
-        super.beforeJob(jobExecution);
     }
 
     @Override
