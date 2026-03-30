@@ -13,29 +13,27 @@ import java.util.UUID;
 
 public class UserProcessor implements ItemProcessor<UserInput, User> {
 
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Override
     public User process(UserInput userInput) throws Exception {
+        User user = new User();
+        user.setPersonId(UUID.fromString(userInput.getPersonId()));
+        user.setFirstName(userInput.getFirstName());
+        user.setLastName(userInput.getLastName());
+        user.setEmail(userInput.getEmail());
+        user.setCountry(userInput.getCountry());
 
-        User user = User.builder()
-                .personId(UUID.fromString(userInput.getPersonId()))
-                .firstName(userInput.getFirstName())
-                .lastName(userInput.getLastName())
-                .email(userInput.getEmail())
-                .country(userInput.getCountry())
-                .birthday(localDateTimeFormat(userInput.getBirthday()))
-                .gender(userInput.getGender().equals("Male") ? Gender.MALE : Gender.FEMALE)
-                .age(Period.between(localDateTimeFormat(userInput.getBirthday()), LocalDate.now()).getYears())
-                .build();
+        LocalDate birthday = LocalDateTime.parse(userInput.getBirthday(), FORMATTER).toLocalDate();
+        user.setBirthday(birthday);
+        user.setAge(Period.between(birthday, LocalDate.now()).getYears());
+
+        if ("Male".equals(userInput.getGender())) {
+            user.setGender(Gender.MALE);
+        } else {
+            user.setGender(Gender.FEMALE);
+        }
 
         return user;
-    }
-
-    private LocalDate  localDateTimeFormat(String birthday) {
-
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-        LocalDateTime formatDateTime = LocalDateTime.parse(birthday, formatter);
-
-        return formatDateTime.toLocalDate();
     }
 }
