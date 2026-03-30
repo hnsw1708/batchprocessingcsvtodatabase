@@ -1,62 +1,40 @@
 package com.example.batchprocessingcsvtodatabase.config;
 
 import com.example.batchprocessingcsvtodatabase.listener.UserJobExecutionNotificationListener;
-import com.example.batchprocessingcsvtodatabase.listener.UserStepCompleteNotificationListener;
 import com.example.batchprocessingcsvtodatabase.model.User;
 import com.example.batchprocessingcsvtodatabase.model.UserInput;
-import com.example.batchprocessingcsvtodatabase.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
-import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
-import org.springframework.batch.item.data.RepositoryItemWriter;
+import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider;
+import org.springframework.batch.item.database.JdbcBatchItemWriter;
+import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
-import org.springframework.batch.item.file.LineMapper;
+import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
 import org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper;
-import org.springframework.batch.item.file.mapping.DefaultLineMapper;
-import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.task.SimpleAsyncTaskExecutor;
-import org.springframework.core.task.TaskExecutor;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.transaction.PlatformTransactionManager;
 
-@Configuration // Informs Spring that this class contains configurations
-@EnableBatchProcessing // Enables batch processing for the application
-@RequiredArgsConstructor
+import javax.sql.DataSource;
+
+@Configuration
 public class BatchConfiguration {
-    private final UserRepository userRepository;
 
     @Bean
     public FlatFileItemReader<UserInput> reader() {
-        FlatFileItemReader<UserInput> itemReader = new FlatFileItemReader<>();
-        itemReader.setResource(new FileSystemResource("src/main/resources/MOCK_DATA.csv"));
-        itemReader.setName("csvReader");
-        itemReader.setLinesToSkip(1);
-        itemReader.setLineMapper(lineMapper());
-        return itemReader;
-    }
-
-    private LineMapper<UserInput> lineMapper() {
-        DefaultLineMapper<UserInput> lineMapper = new DefaultLineMapper<>();
-
-        DelimitedLineTokenizer lineTokenizer = new DelimitedLineTokenizer();
-        lineTokenizer.setDelimiter(",");
-        lineTokenizer.setStrict(false);
-        lineTokenizer.setNames(
-                "personId","firstName","lastName","email","gender","birthday","country"
-        );
-
-        BeanWrapperFieldSetMapper<UserInput> fieldSetMapper = new BeanWrapperFieldSetMapper<>();
-        fieldSetMapper.setTargetType(UserInput.class);
-
-        lineMapper.setLineTokenizer(lineTokenizer);
-        lineMapper.setFieldSetMapper(fieldSetMapper);
-        return lineMapper;
+        return new FlatFileItemReaderBuilder<UserInput>()
+                .name("userItemReader")
+                .resource(new ClassPathResource("users.csv"))
+                .delimited()
+                .names("personId", "firstName", "lastName", "email", "gender", "country", "birthday")
+                .fieldSetMapper(new BeanWrapperFieldSetMapper<>() {{
+                    setTargetType(UserInput.class);
+                }})
+                .build();
     }
 
     @Bean
@@ -65,47 +43,37 @@ public class BatchConfiguration {
     }
 
     @Bean
-    public RepositoryItemWriter<User> writer() {
-        RepositoryItemWriter<User> writer = new RepositoryItemWriter<>();
-        writer.setRepository(userRepository);
-        writer.setMethodName("save");
-        return writer;
-    }
-
-    @Bean
-    public Step step1(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
-        return new StepBuilder("csv-step", jobRepository).<UserInput, User>chunk(10, transactionManager)
-                .reader(reader())
-                .processor(processor())
-                .writer(writer())
-                .listener(stepExecutionListener())
-                .taskExecutor(taskExecutor())
+    public JdbcBatchItemWriter<User> writer(DataSource dataSource) {
+        return new JdbcBatchItemWriterBuilder<User>()
+                .itemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>())
+                .sql("INSERT INTO user (person_id, first_name, last_name, email, gender, country, birthday, age) " +
+                     "VALUES (:personId, :firstName, :lastName, :email, :gender, :country, :birthday, :age)")
+                .dataSource(dataSource)
                 .build();
     }
 
     @Bean
-    public Job runJob(JobRepository jobRepository) {
-        return new JobBuilder("importuserjob", jobRepository)
-                .listener(jobExecutionListener())
-                .flow(step1()).end().build();
-
+    public Job importUserJob(JobRepository jobRepository,
+                             UserJobExecutionNotificationListener listener,
+                             Step step1) {
+        return new JobBuilder("importUserJob", jobRepository)
+                .listener(listener)
+                .flow(step1)
+                .end()
+                .build();
     }
 
     @Bean
-    public TaskExecutor taskExecutor() {
-        SimpleAsyncTaskExecutor asyncTaskExecutor = new SimpleAsyncTaskExecutor();
-        asyncTaskExecutor.setConcurrencyLimit(10);
-        return asyncTaskExecutor;
-    }
-
-    @Bean
-    public UserJobExecutionNotificationListener stepExecutionListener() {
-        return new UserJobExecutionNotificationListener(userRepository);
-    }
-
-
-    @Bean
-    public UserStepCompleteNotificationListener jobExecutionListener() {
-        return new UserStepCompleteNotificationListener();
+    public Step step1(JobRepository jobRepository,
+                      PlatformTransactionManager transactionManager,
+                      FlatFileItemReader<UserInput> reader,
+                      UserProcessor processor,
+                      JdbcBatchItemWriter<User> writer) {
+        return new StepBuilder("step1", jobRepository)
+                .<UserInput, User>chunk(10, transactionManager)
+                .reader(reader)
+                .processor(processor)
+                .writer(writer)
+                .build();
     }
 }
