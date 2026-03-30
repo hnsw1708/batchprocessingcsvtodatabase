@@ -1,32 +1,37 @@
 package com.example.batchprocessingcsvtodatabase.listener;
 
 import com.example.batchprocessingcsvtodatabase.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobExecutionListener;
+import org.springframework.stereotype.Component;
 
-@Slf4j
-@RequiredArgsConstructor
+@Component
 public class UserJobExecutionNotificationListener implements JobExecutionListener {
+
+    private static final Logger log = LoggerFactory.getLogger(UserJobExecutionNotificationListener.class);
 
     private final UserRepository userRepository;
 
-    @Override
-    public void beforeJob(JobExecution jobExecution){
-        log.info("UserJobExecutionNotificationListener | beforeJob | Executing job id : " +jobExecution.getJobId());
+    public UserJobExecutionNotificationListener(UserRepository userRepository) {
+        this.userRepository = userRepository;
     }
 
     @Override
-    public void afterJob(JobExecution jobExecution){
+    public void beforeJob(JobExecution jobExecution) {
+        log.info("Job started with id: {}", jobExecution.getJobId());
+    }
 
-        log.info("UserJobExecutionNotificationListener | afterJob | Executing job id : " +jobExecution.getJobId());
+    @Override
+    public void afterJob(JobExecution jobExecution) {
+        log.info("Job finished with id: {}", jobExecution.getJobId());
 
-        if(jobExecution.getStatus() == BatchStatus.COMPLETED) {
-            log.info("Job Completed");
+        if (jobExecution.getStatus() == BatchStatus.COMPLETED) {
+            log.info("Job Completed!");
         }
-        userRepository.findAll()
-                .forEach(person -> log.info("Found (" + person + ">) in the database.") );
+
+        userRepository.findAll().forEach(user -> log.info("Found user: {}", user));
     }
 }
