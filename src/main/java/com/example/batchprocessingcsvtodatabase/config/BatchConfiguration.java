@@ -9,8 +9,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
-import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
-import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.repository.JobRepository;
+import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.data.RepositoryItemWriter;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.LineMapper;
@@ -22,14 +23,12 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.transaction.PlatformTransactionManager;
 
 @Configuration // Informs Spring that this class contains configurations
 @EnableBatchProcessing // Enables batch processing for the application
 @RequiredArgsConstructor
 public class BatchConfiguration {
-
-    private final JobBuilderFactory jobBuilderFactory;
-    private final StepBuilderFactory stepBuilderFactory;
     private final UserRepository userRepository;
 
     @Bean
@@ -74,8 +73,8 @@ public class BatchConfiguration {
     }
 
     @Bean
-    public Step step1() {
-        return stepBuilderFactory.get("csv-step").<UserInput, User>chunk(10)
+    public Step step1(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
+        return new StepBuilder("csv-step", jobRepository).<UserInput, User>chunk(10, transactionManager)
                 .reader(reader())
                 .processor(processor())
                 .writer(writer())
@@ -85,10 +84,10 @@ public class BatchConfiguration {
     }
 
     @Bean
-    public Job runJob() {
-        return jobBuilderFactory.get("importuserjob")
+    public Job runJob(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
+        return new JobBuilder("importuserjob", jobRepository)
                 .listener(jobExecutionListener())
-                .flow(step1()).end().build();
+                .flow(step1(jobRepository, transactionManager)).end().build();
 
     }
 
@@ -100,13 +99,13 @@ public class BatchConfiguration {
     }
 
     @Bean
-    public UserJobExecutionNotificationListener stepExecutionListener() {
-        return new UserJobExecutionNotificationListener(userRepository);
+    public UserStepCompleteNotificationListener stepExecutionListener() {
+        return new UserStepCompleteNotificationListener();
     }
 
 
     @Bean
-    public UserStepCompleteNotificationListener jobExecutionListener() {
-        return new UserStepCompleteNotificationListener();
+    public UserJobExecutionNotificationListener jobExecutionListener() {
+        return new UserJobExecutionNotificationListener(userRepository);
     }
 }
