@@ -1,22 +1,20 @@
 package com.example.batchprocessingcsvtodatabase.listener;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.StepExecutionListener;
+import org.springframework.stereotype.Component;
 
-@Slf4j
+@Component
 public class UserStepCompleteNotificationListener implements StepExecutionListener {
 
-    @Override
-    public void beforeStep(StepExecution stepExecution) {
-        log.info("UserStepCompleteNotificationListener | beforeStep | StepExecution job id : " + stepExecution.getId());
-    }
+    private static final Logger log = LoggerFactory.getLogger(UserStepCompleteNotificationListener.class);
 
     @Override
     public ExitStatus afterStep(StepExecution stepExecution) {
-        log.info("UserStepCompleteNotificationListener | afterStep | StepExecution job id : " + stepExecution.getId());
-        return;
+        log.info("Step completed with status: {}", stepExecution.getStatus());
+        return null;
     }
-
 }
